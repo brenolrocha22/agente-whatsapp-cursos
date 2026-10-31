@@ -1,7 +1,8 @@
-# Prompt do Agente de Vendas e Atendimento no WhatsApp
+# Prompt do agente de vendas e atendimento: Trilha Tech
 
-> Desafio Criativo DIO: Projetando o Prompt de um Agente de Atendimento ao Cliente
-> Cenário: escola de cursos online de tecnologia (marca fictícia **Trilha Tech**), atendendo pelo WhatsApp.
+Minha entrega do Desafio Criativo da DIO. Abaixo está o prompt final, já com os ajustes que vieram dos testes. No fim estão os casos de teste e o que mudou em cada rodada.
+
+Cenário: escola fictícia de cursos online de tecnologia, atendendo pelo WhatsApp.
 
 ---
 

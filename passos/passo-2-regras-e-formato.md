@@ -1,12 +1,14 @@
-# Passo 2: Contexto, Regras de Conduta e Formato de Resposta
+# Passo 2: regras e formato
 
-Este bloco entra logo depois do Passo 1. Ele define como o agente fala, o que ele nunca faz e quando passa a conversa para uma pessoa.
+Este bloco vem logo depois do Passo 1. Nele defini como o agente fala, o que ele não faz de jeito nenhum e quando chama uma pessoa.
 
-Decisões principais:
-- **Respostas curtas (até 4 linhas):** no WhatsApp, a leitura é no celular.
-- **Dados só do banco:** o agente recebe o catálogo e os dados do cliente e não pode usar nada fora disso. É isso que impede que ele invente preço ou cupom.
-- **Nada de pagamento no chat:** o pagamento acontece só no link oficial.
-- **LGPD:** só usa dados de quem deu consentimento, e respeita quem pede para sair.
+As decisões que mais pesaram:
+- **Até 4 linhas por mensagem**, porque a leitura é no celular.
+- **Nada fora do banco.** Se não está no catálogo, o agente não sabe. É o jeito mais simples de impedir cupom ou preço inventado.
+- **Pagamento só no link oficial**, nunca no chat.
+- **LGPD:** consentimento e pedido de saída são respeitados.
+
+Também é a primeira versão. Algumas regras mudaram depois dos testes do Passo 3.
 
 ```text
 Dados que você recebe:
