@@ -101,6 +101,8 @@ Se faltar alguma informação para você responder com segurança, pergunte ante
 
 Teste o prompt em uma IA (Claude, ChatGPT, Gemini) colando o prompt como instrução e conversando como cliente. Para simular o sistema, cole junto os blocos [DADOS_DO_CLIENTE], [CATALOGO] e [AJUDA_ALUNO], gerados pelas consultas Q1, Q2 e Q7 de `database/schema.sql`.
 
+O texto exato que colei em cada rodada está na pasta [`testes/`](testes/): [rodada 1](testes/kit-rodada-1.md) e [rodada 2](testes/kit-rodada-2.md).
+
 | # | Tipo de teste | Mensagem do cliente | Comportamento esperado |
 |---|---|---|---|
 | 1 | Pedido comum | "Oi, quero aprender programação do zero, qual curso vocês indicam?" | Pergunta o objetivo, indica até 2 cursos do catálogo, sem texto longo |

@@ -43,6 +43,9 @@ Outras regras que considero essenciais:
 ├── passos/
 │   ├── passo-1-papel-e-escopo.md     # primeira versão: quem é o agente e quem ele atende
 │   └── passo-2-regras-e-formato.md   # primeira versão: tom, regras e encaminhamento
+├── testes/
+│   ├── kit-rodada-1.md               # o que colei no ChatGPT na rodada 1
+│   └── kit-rodada-2.md               # o que colei no ChatGPT na rodada 2
 └── database/
     └── schema.sql                    # tabelas, dados de exemplo e consultas
 ```
@@ -72,7 +75,7 @@ Também funciona colando o script num editor online de SQLite, como o sqliteonli
 
 No Passo 3, rodei o prompt no ChatGPT com os dados do banco e mensagens difíceis de propósito. Na primeira rodada, dois dos cinco testes falharam em parte: o agente encaminhou um problema de pagamento sem dizer o que tinha registrado, e recusou o número do cartão sem mandar o link oficial. Corrigi essas regras, fechei lacunas que encontrei no caminho (ementa e passos de suporte que o banco não tinha) e acrescentei novos casos, como tentativa de manipulação, objeção de preço e opt-out.
 
-Os casos de teste, as respostas e os ajustes estão no fim do [`prompt-agente-whatsapp.md`](prompt-agente-whatsapp.md).
+Os casos de teste, as respostas e os ajustes estão no fim do [`prompt-agente-whatsapp.md`](prompt-agente-whatsapp.md). O texto exato que colei no ChatGPT em cada rodada está em [`testes/`](testes/).
 
 ## Próximos passos
 
