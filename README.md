@@ -64,7 +64,7 @@ Também dá para colar o script em um editor online de SQLite, como o sqliteonli
 
 ## Testes do prompt
 
-Os casos de teste (pedido comum, informação que o agente não tem, caso para humano, dado sensível e promessa indevida) estão no fim de `prompt-agente-whatsapp.md`.
+Os casos de teste (pedido comum, informação que o agente não tem, caso para humano, dado sensível e promessa indevida) estão no fim de `prompt-agente-whatsapp.md`, junto com o resultado da rodada no ChatGPT e os ajustes que ela gerou no prompt.
 
 ## Tecnologias
 
