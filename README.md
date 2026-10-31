@@ -24,8 +24,9 @@ Mensagem no WhatsApp
         ▼
 Sistema busca o número na tabela clientes
         │
-        ├── Q1 → bloco [DADOS_DO_CLIENTE]  (nome, interesses, matrículas, último atendimento)
-        └── Q2 → bloco [CATALOGO]          (cursos ativos, preço, link)
+        ├── Q1 → bloco [DADOS_DO_CLIENTE]  (nome, consentimento, interesses, matrículas, último atendimento)
+        ├── Q2 → bloco [CATALOGO]          (cursos ativos, ementa, preço, parcela, pagamento, link, próximo curso)
+        └── Q7 → bloco [AJUDA_ALUNO]       (passos de acesso, login e certificado)
         │
         ▼
 Prompt + blocos → modelo de IA → resposta no WhatsApp
@@ -34,17 +35,18 @@ Prompt + blocos → modelo de IA → resposta no WhatsApp
 Registro na tabela atendimentos (e atualização do lead)
 ```
 
-O prompt proíbe o agente de usar qualquer dado fora desses dois blocos. Preço, cupom e link só existem no banco, então o agente não tem de onde inventar.
+O prompt proíbe o agente de usar qualquer dado fora desses três blocos. Preço, conteúdo do curso, link e passos de suporte só existem no banco, então o agente não tem de onde inventar.
 
 ## Banco de dados
 
 | Tabela | O que guarda |
 |---|---|
 | `clientes` | Nome, WhatsApp, objetivo, consentimento LGPD e opt-out. Não guarda CPF, cartão nem senha |
-| `cursos` | Catálogo: nível, carga horária, preço, parcelas e link de matrícula |
+| `cursos` | Catálogo: nível, ementa, carga horária, preço, parcelas, formas de pagamento, link de matrícula e próximo curso da trilha |
 | `leads` | Funil de vendas: novo → em conversa → link enviado → matriculado / perdido |
 | `matriculas` | Cursos comprados e progresso do aluno |
 | `atendimentos` | Histórico das conversas e se foram para um humano |
+| `ajuda_aluno` | Passos oficiais de suporte: acessar o curso, recuperar login, emitir certificado |
 
 Consultas incluídas no `schema.sql`:
 1. Contexto do cliente para o agente
@@ -53,6 +55,7 @@ Consultas incluídas no `schema.sql`:
 4. Taxa de conversão por curso
 5. Leads para follow-up (só com consentimento LGPD)
 6. Percentual de atendimentos que foram para humano
+7. Passos de suporte ao aluno
 
 ### Como rodar
 

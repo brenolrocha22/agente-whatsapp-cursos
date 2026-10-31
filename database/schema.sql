@@ -29,19 +29,23 @@ CREATE TABLE clientes (
 
 -- ---------------------------------------------------------------------
 -- 2. CURSOS (o [CATALOGO] que o agente recebe)
--- Preço e link só existem aqui: o agente nunca inventa esses dados.
+-- Preço, ementa, formas de pagamento e link só existem aqui: o agente
+-- nunca inventa esses dados.
 -- ---------------------------------------------------------------------
 CREATE TABLE cursos (
-    id               INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome             TEXT    NOT NULL,
-    area             TEXT    NOT NULL,                -- programação, dados, IA
-    nivel            TEXT    NOT NULL CHECK (nivel IN ('iniciante', 'intermediario', 'avancado')),
-    carga_horaria_h  INTEGER NOT NULL,
-    preco            REAL    NOT NULL,
-    parcelas_max     INTEGER NOT NULL DEFAULT 1,
-    certificado      INTEGER NOT NULL DEFAULT 1 CHECK (certificado IN (0, 1)),
-    link_matricula   TEXT    NOT NULL,
-    ativo            INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1))
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome              TEXT    NOT NULL,
+    area              TEXT    NOT NULL,                -- programação, dados, IA
+    nivel             TEXT    NOT NULL CHECK (nivel IN ('iniciante', 'intermediario', 'avancado')),
+    ementa            TEXT    NOT NULL,                -- o que a pessoa aprende, em uma frase
+    carga_horaria_h   INTEGER NOT NULL,
+    preco             REAL    NOT NULL,
+    parcelas_max      INTEGER NOT NULL DEFAULT 1,
+    formas_pagamento  TEXT    NOT NULL DEFAULT 'cartão de crédito, Pix ou boleto',
+    certificado       INTEGER NOT NULL DEFAULT 1 CHECK (certificado IN (0, 1)),
+    link_matricula    TEXT    NOT NULL,
+    proximo_curso_id  INTEGER REFERENCES cursos(id), -- próximo passo da trilha, indicado a quem conclui
+    ativo             INTEGER NOT NULL DEFAULT 1 CHECK (ativo IN (0, 1))
 );
 
 -- ---------------------------------------------------------------------
@@ -88,6 +92,17 @@ CREATE TABLE atendimentos (
     resumo                 TEXT
 );
 
+-- ---------------------------------------------------------------------
+-- 6. AJUDA_ALUNO (o [AJUDA_ALUNO] que o agente recebe)
+-- Passos oficiais para os pedidos de suporte. Sem isso, o agente teria
+-- de inventar como recuperar login ou emitir certificado.
+-- ---------------------------------------------------------------------
+CREATE TABLE ajuda_aluno (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    tema    TEXT NOT NULL UNIQUE,
+    passos  TEXT NOT NULL
+);
+
 -- Índices para as consultas mais frequentes do agente
 CREATE INDEX idx_leads_status          ON leads(status);
 CREATE INDEX idx_atendimentos_cliente  ON atendimentos(cliente_id);
@@ -96,12 +111,23 @@ CREATE INDEX idx_matriculas_cliente    ON matriculas(cliente_id);
 -- =====================================================================
 -- DADOS DE EXEMPLO (fictícios)
 -- =====================================================================
-INSERT INTO cursos (nome, area, nivel, carga_horaria_h, preco, parcelas_max, link_matricula) VALUES
-('Lógica de Programação do Zero',  'programação', 'iniciante',     40,  297.00,  6, 'https://trilhatech.exemplo/matricula/logica'),
-('Python para Análise de Dados',   'dados',       'iniciante',     60,  497.00, 10, 'https://trilhatech.exemplo/matricula/python-dados'),
-('SQL na Prática',                 'dados',       'iniciante',     30,  247.00,  6, 'https://trilhatech.exemplo/matricula/sql'),
-('Agentes de IA com Python',       'IA',          'intermediario', 50,  697.00, 12, 'https://trilhatech.exemplo/matricula/agentes-ia'),
-('Desenvolvimento Web Full Stack', 'programação', 'intermediario', 120, 1197.00, 12, 'https://trilhatech.exemplo/matricula/fullstack');
+INSERT INTO cursos (nome, area, nivel, ementa, carga_horaria_h, preco, parcelas_max, link_matricula) VALUES
+('Lógica de Programação do Zero',  'programação', 'iniciante',     'Variáveis, condições, repetições e funções, com exercícios em Python', 40,  297.00,  6, 'https://trilhatech.exemplo/matricula/logica'),
+('Python para Análise de Dados',   'dados',       'iniciante',     'Python, Pandas e gráficos para limpar e analisar planilhas e bases reais', 60,  497.00, 10, 'https://trilhatech.exemplo/matricula/python-dados'),
+('SQL na Prática',                 'dados',       'iniciante',     'Consultas, filtros, junções e relatórios em bancos de dados relacionais', 30,  247.00,  6, 'https://trilhatech.exemplo/matricula/sql'),
+('Agentes de IA com Python',       'IA',          'intermediario', 'Criação de agentes com modelos de linguagem, prompts, ferramentas e memória', 50,  697.00, 12, 'https://trilhatech.exemplo/matricula/agentes-ia'),
+('Desenvolvimento Web Full Stack', 'programação', 'intermediario', 'HTML, CSS, JavaScript, React e Node.js para criar e publicar aplicações web', 120, 1197.00, 12, 'https://trilhatech.exemplo/matricula/fullstack');
+
+-- Trilha: o curso indicado a quem conclui cada um
+UPDATE cursos SET proximo_curso_id = 5 WHERE id = 1;  -- Lógica → Full Stack
+UPDATE cursos SET proximo_curso_id = 4 WHERE id = 2;  -- Python Dados → Agentes de IA
+UPDATE cursos SET proximo_curso_id = 2 WHERE id = 3;  -- SQL → Python Dados
+UPDATE cursos SET proximo_curso_id = 4 WHERE id = 5;  -- Full Stack → Agentes de IA
+
+INSERT INTO ajuda_aluno (tema, passos) VALUES
+('recuperar login', '1. Acesse trilhatech.exemplo/entrar; 2. Toque em "Esqueci minha senha"; 3. Informe o e-mail da matrícula; 4. Abra o link enviado ao e-mail (veja também o spam) e crie uma nova senha.'),
+('emitir certificado', '1. Conclua 100% das aulas do curso; 2. Na área do aluno, abra o curso; 3. Toque em "Certificado" e baixe o PDF.'),
+('acessar o curso', '1. Entre em trilhatech.exemplo/entrar com o e-mail da matrícula; 2. Abra "Meus cursos"; 3. Escolha o curso e continue de onde parou.');
 
 INSERT INTO clientes (nome, telefone_whatsapp, email, cidade, perfil, objetivo, consentimento_lgpd, data_consentimento) VALUES
 ('Ana Souza',      '+5581990000001', 'ana@exemplo.com',     'Recife',    'interessado', 'primeiro emprego',  1, '2026-10-20 10:00:00'),
@@ -153,10 +179,15 @@ FROM clientes c
 WHERE c.telefone_whatsapp = '+5581990000001';
 
 -- Q2. Catálogo ativo para o agente ([CATALOGO])
-SELECT nome, area, nivel, carga_horaria_h, preco, parcelas_max, certificado, link_matricula
-FROM cursos
-WHERE ativo = 1
-ORDER BY area, nivel;
+SELECT
+    cu.nome, cu.area, cu.nivel, cu.ementa, cu.carga_horaria_h, cu.preco, cu.parcelas_max,
+    ROUND(cu.preco / cu.parcelas_max, 2) AS valor_parcela,
+    cu.formas_pagamento, cu.certificado, cu.link_matricula,
+    prox.nome                            AS proximo_curso
+FROM cursos cu
+LEFT JOIN cursos prox ON prox.id = cu.proximo_curso_id AND prox.ativo = 1
+WHERE cu.ativo = 1
+ORDER BY cu.area, cu.nivel;
 
 -- Q3. Funil de vendas: quantos leads em cada etapa
 SELECT status, COUNT(*) AS total
@@ -195,3 +226,8 @@ SELECT
     ROUND(100.0 * SUM(encaminhado_humano) / COUNT(*), 1) AS pct_humano
 FROM atendimentos
 GROUP BY motivo;
+
+-- Q7. Passos de suporte para o agente ([AJUDA_ALUNO])
+SELECT tema, passos
+FROM ajuda_aluno
+ORDER BY tema;
