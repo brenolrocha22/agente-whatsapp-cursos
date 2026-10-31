@@ -10,7 +10,7 @@ O agente fala com dois públicos. Com quem está pensando em comprar, ele entend
 
 ## O bot funcionando
 
-Um contato novo, do primeiro "oi" até o link de matrícula. Rodei o prompt no ChatGPT e montei a conversa no visual do WhatsApp, com as respostas sem edição:
+Um contato novo, do primeiro "oi" até o link de matrícula. Rodei o prompt no ChatGPT e montei a conversa no visual do WhatsApp, com as respostas do agente sem nenhuma edição:
 
 <p align="center">
   <img src="docs/conversa-exemplo.svg" alt="Conversa de vendas: o agente pede o nome, entende o objetivo, indica Python para Análise de Dados, informa preço e parcela e envia o link de matrícula" width="420">
