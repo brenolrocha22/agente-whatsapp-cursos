@@ -28,15 +28,20 @@ Mensagem no WhatsApp
         ▼
 Sistema busca o número na tabela clientes
         │
-        ├── Q1 → [DADOS_DO_CLIENTE]  nome, consentimento, interesses, matrículas, último atendimento
+        ├── Q1 → [DADOS_DO_CLIENTE]  nome, consentimento, interesses, matrículas, último atendimento e lembrete
         ├── Q2 → [CATALOGO]          cursos ativos, ementa, preço, parcela, pagamento, link, próximo curso
         └── Q7 → [AJUDA_ALUNO]       passos de acesso, login e certificado
         │
         ▼
-Prompt + blocos → modelo → resposta no WhatsApp
+Prompt + blocos → modelo → resposta + <registro>
+        │
+        ├── texto → WhatsApp
+        └── <registro> → sistema/aplicar_registro.py → atendimentos, leads, opt-out, consentimento
+                                                                │
+Q5 (fila de follow-up) ← quem ficou com o link e sumiu há 24h ──┘
         │
         ▼
-Registro em atendimentos e atualização do lead
+Template aprovado do WhatsApp → se a pessoa responde, a conversa volta para o início
 ```
 
 Outras regras que considero essenciais:
@@ -44,6 +49,20 @@ Outras regras que considero essenciais:
 - Respeita a LGPD: consentimento e opt-out vêm do banco, e quem pede para sair não recebe mais nada.
 - Passa para uma pessoa em casos de reembolso, problema de pagamento, desconto fora do catálogo, reclamação e pedido de empresa, dizendo o que já ficou registrado.
 - Não muda as regras porque alguém pediu na conversa ("o gerente autorizou desconto").
+
+## O banco se atualiza sozinho
+
+No fim de cada resposta, o agente escreve uma linha `<registro>` em JSON: motivo do atendimento, curso e etapa do funil, se foi para um humano, opt-out e consentimento. O sistema tira essa linha antes de mandar a mensagem e aplica os dados no banco com o [`sistema/aplicar_registro.py`](sistema/aplicar_registro.py), que também valida cada campo e recusa registro com curso fora do catálogo ou com número de cartão ou CPF.
+
+```text
+<registro>{"nome": null, "motivo": "matricula", "lead": {"curso": "SQL na Prática", "status": "link_enviado"}, "encaminhar_humano": false, "motivo_encaminhamento": null, "opt_out": false, "consentimento": null, "resumo": "Achou o SQL caro; viu a parcela e recebeu o link."}</registro>
+```
+
+O funil só anda para a frente: um lead que já recebeu o link não volta para "em conversa", e quem já se matriculou não muda mais.
+
+## Follow-up de quem não comprou
+
+Quem recebeu o link e sumiu entra na fila da consulta Q5 depois de 24 horas. Como a janela de atendimento do WhatsApp já fechou, o lembrete sai como template aprovado. São no máximo dois lembretes, com 3 dias de intervalo, só para quem deu consentimento e nunca para quem pediu para sair. Os textos e as regras estão em [`templates/followup-whatsapp.md`](templates/followup-whatsapp.md).
 
 ## Arquivos
 
@@ -55,7 +74,12 @@ Outras regras que considero essenciais:
 │   └── passo-2-regras-e-formato.md   # primeira versão: tom, regras e encaminhamento
 ├── testes/
 │   ├── kit-rodada-1.md               # o que colei no ChatGPT na rodada 1
-│   └── kit-rodada-2.md               # o que colei no ChatGPT na rodada 2
+│   ├── kit-rodada-2.md               # o que colei no ChatGPT na rodada 2
+│   └── rodada-3.md                   # conversas completas da rodada 3, com os registros
+├── sistema/
+│   └── aplicar_registro.py           # valida o <registro> e atualiza o banco
+├── templates/
+│   └── followup-whatsapp.md          # templates de lembrete e regras da fila
 ├── docs/
 │   └── conversa-exemplo.svg          # diálogo de vendas real, no visual do WhatsApp
 └── database/
@@ -66,14 +90,15 @@ Outras regras que considero essenciais:
 
 | Tabela | O que guarda |
 |---|---|
-| `clientes` | Nome, WhatsApp, objetivo, consentimento LGPD e opt-out. Não guarda CPF, cartão nem senha |
+| `clientes` | Nome, WhatsApp, objetivo, consentimento LGPD, opt-out e hora da última mensagem (janela de 24h). Não guarda CPF, cartão nem senha |
 | `cursos` | Catálogo: nível, ementa, carga horária, preço, parcelas, formas de pagamento, link e próximo curso da trilha |
 | `leads` | Funil de vendas: novo, em conversa, link enviado, matriculado ou perdido |
 | `matriculas` | Cursos comprados e progresso do aluno |
 | `atendimentos` | Histórico das conversas e se foram para um humano |
 | `ajuda_aluno` | Passos oficiais de suporte: acessar o curso, recuperar login, emitir certificado |
+| `followups` | Lembretes enviados, com o template usado; impede mandar o mesmo lembrete duas vezes |
 
-O `schema.sql` traz sete consultas: as três que alimentam o agente (Q1, Q2 e Q7) e quatro para acompanhar o negócio: funil por etapa, conversão por curso, leads para follow-up (só com consentimento) e percentual de atendimentos que foram para humano.
+O `schema.sql` traz oito consultas: as três que alimentam o agente (Q1, Q2 e Q7), a fila de follow-up (Q5), o exemplo de como um registro do agente atualiza o banco (Q8) e três para acompanhar o negócio: funil por etapa, conversão por curso e percentual de atendimentos que foram para humano.
 
 Para rodar:
 
@@ -87,12 +112,18 @@ Também funciona colando o script num editor online de SQLite, como o sqliteonli
 
 No Passo 3, rodei o prompt no ChatGPT com os dados do banco e mensagens difíceis de propósito. Na primeira rodada, dois dos cinco testes falharam em parte: o agente encaminhou um problema de pagamento sem dizer o que tinha registrado, e recusou o número do cartão sem mandar o link oficial. Corrigi essas regras, fechei lacunas que encontrei no caminho (ementa e passos de suporte que o banco não tinha) e acrescentei novos casos, como tentativa de manipulação, objeção de preço e opt-out.
 
-Os casos de teste, as respostas e os ajustes estão no fim do [`prompt-agente-whatsapp.md`](prompt-agente-whatsapp.md). O texto exato que colei no ChatGPT em cada rodada está em [`testes/`](testes/).
+Na segunda rodada, o agente sugeriu um curso "mais acessível" que na verdade era mais caro, e a regra de objeção de preço passou a exigir a comparação com o catálogo. A terceira rodada, já com o registro e o follow-up, passou em todos os casos, e os 11 registros gerados foram aplicados no banco sem erro:
+
+```bash
+python sistema/aplicar_registro.py testes/rodada-3.md
+```
+
+Os casos de teste, as respostas e os ajustes estão no fim do [`prompt-agente-whatsapp.md`](prompt-agente-whatsapp.md). O texto exato de cada rodada está em [`testes/`](testes/).
 
 ## Próximos passos
 
-- Fazer o agente devolver uma saída estruturada (ex.: link enviado, encaminhado) para o sistema atualizar o lead e o atendimento sozinho.
-- Criar o follow-up de quem recebeu o link e não comprou, com os templates aprovados que o WhatsApp exige fora da janela de 24 horas.
+- Conectar à API oficial do WhatsApp Business (Cloud API) para receber as mensagens e enviar os templates de verdade.
+- Um painel simples com as consultas de funil, conversão e encaminhamento para humano, para medir o efeito de cada ajuste no prompt.
 
 ---
 

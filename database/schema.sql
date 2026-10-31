@@ -24,6 +24,7 @@ CREATE TABLE clientes (
     consentimento_lgpd  INTEGER NOT NULL DEFAULT 0 CHECK (consentimento_lgpd IN (0, 1)),
     data_consentimento  TEXT,
     opt_out             INTEGER NOT NULL DEFAULT 0 CHECK (opt_out IN (0, 1)),  -- pediu para não receber mensagens
+    ultima_mensagem_em  TEXT,                         -- última mensagem da pessoa: abre a janela de 24h do WhatsApp
     criado_em           TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -103,8 +104,23 @@ CREATE TABLE ajuda_aluno (
     passos  TEXT NOT NULL
 );
 
+-- ---------------------------------------------------------------------
+-- 7. FOLLOWUPS
+-- Lembretes enviados a quem recebeu o link e não comprou. Fora da janela
+-- de 24h o WhatsApp só aceita templates aprovados, por isso cada envio
+-- guarda o nome do template (ver templates/followup-whatsapp.md).
+-- ---------------------------------------------------------------------
+CREATE TABLE followups (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    lead_id    INTEGER NOT NULL REFERENCES leads(id),
+    template   TEXT    NOT NULL CHECK (template IN ('lembrete_link_1', 'lembrete_link_2')),
+    enviado_em TEXT    NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (lead_id, template)                   -- cada lembrete vai no máximo uma vez
+);
+
 -- Índices para as consultas mais frequentes do agente
 CREATE INDEX idx_leads_status          ON leads(status);
+CREATE INDEX idx_followups_lead        ON followups(lead_id);
 CREATE INDEX idx_atendimentos_cliente  ON atendimentos(cliente_id);
 CREATE INDEX idx_matriculas_cliente    ON matriculas(cliente_id);
 
@@ -129,15 +145,16 @@ INSERT INTO ajuda_aluno (tema, passos) VALUES
 ('emitir certificado', '1. Conclua 100% das aulas do curso; 2. Na área do aluno, abra o curso; 3. Toque em "Certificado" e baixe o PDF.'),
 ('acessar o curso', '1. Entre em trilhatech.exemplo/entrar com o e-mail da matrícula; 2. Abra "Meus cursos"; 3. Escolha o curso e continue de onde parou.');
 
-INSERT INTO clientes (nome, telefone_whatsapp, email, cidade, perfil, objetivo, consentimento_lgpd, data_consentimento) VALUES
-('Ana Souza',      '+5581990000001', 'ana@exemplo.com',     'Recife',    'interessado', 'primeiro emprego',  1, '2026-10-20 10:00:00'),
-('Carlos Lima',    '+5581990000002', 'carlos@exemplo.com',  'Olinda',    'aluno',       'mudar de área',     1, '2026-09-02 14:30:00'),
-('Juliana Alves',  '+5511990000003', NULL,                  'São Paulo', 'interessado', 'se atualizar',      1, '2026-10-28 19:15:00'),
-('Marcos Ferreira','+5521990000004', 'marcos@exemplo.com',  'Rio de Janeiro', 'aluno',  'primeiro emprego',  1, '2026-08-15 09:00:00'),
-('Patrícia Gomes', '+5581990000005', NULL,                  'Jaboatão',  'interessado', NULL,                0, NULL);
+INSERT INTO clientes (nome, telefone_whatsapp, email, cidade, perfil, objetivo, consentimento_lgpd, data_consentimento, ultima_mensagem_em) VALUES
+('Ana Souza',      '+5581990000001', 'ana@exemplo.com',     'Recife',    'interessado', 'primeiro emprego',  1, '2026-10-20 10:00:00', '2026-10-28 18:05:00'),
+('Carlos Lima',    '+5581990000002', 'carlos@exemplo.com',  'Olinda',    'aluno',       'mudar de área',     1, '2026-09-02 14:30:00', '2026-09-05 10:00:00'),
+('Juliana Alves',  '+5511990000003', NULL,                  'São Paulo', 'interessado', 'se atualizar',      1, '2026-10-28 19:15:00', '2026-10-28 19:20:00'),
+('Marcos Ferreira','+5521990000004', 'marcos@exemplo.com',  'Rio de Janeiro', 'aluno',  'primeiro emprego',  1, '2026-08-15 09:00:00', '2026-08-20 16:00:00'),
+('Patrícia Gomes', '+5581990000005', NULL,                  'Jaboatão',  'interessado', NULL,                0, NULL,                  '2026-10-29 08:30:00');
 
+INSERT INTO leads (cliente_id, curso_id, origem, status, atualizado_em) VALUES
+(1, 1, 'instagram', 'link_enviado', '2026-10-28 18:00:00');
 INSERT INTO leads (cliente_id, curso_id, origem, status) VALUES
-(1, 1, 'instagram', 'link_enviado'),
 (1, 3, 'instagram', 'em_conversa'),
 (2, 2, 'anuncio',   'matriculado'),
 (3, 4, 'site',      'novo'),
@@ -174,7 +191,10 @@ SELECT
        FROM matriculas m JOIN cursos cu ON cu.id = m.curso_id
       WHERE m.cliente_id = c.id)                                   AS matriculas,
     (SELECT a.resumo FROM atendimentos a
-      WHERE a.cliente_id = c.id ORDER BY a.inicio DESC LIMIT 1)    AS ultimo_atendimento
+      WHERE a.cliente_id = c.id ORDER BY a.inicio DESC LIMIT 1)    AS ultimo_atendimento,
+    (SELECT f.template || ' sobre ' || cu.nome || ' em ' || f.enviado_em
+       FROM followups f JOIN leads l ON l.id = f.lead_id JOIN cursos cu ON cu.id = l.curso_id
+      WHERE l.cliente_id = c.id ORDER BY f.enviado_em DESC LIMIT 1) AS ultimo_followup
 FROM clientes c
 WHERE c.telefone_whatsapp = '+5581990000001';
 
@@ -208,15 +228,40 @@ LEFT JOIN leads l ON l.curso_id = cu.id
 GROUP BY cu.id
 ORDER BY conversao_pct DESC;
 
--- Q5. Leads que receberam o link e ainda não fecharam,
---     só de quem deu consentimento e não pediu para sair (follow-up).
-SELECT c.nome, c.telefone_whatsapp, cu.nome AS curso, l.atualizado_em
+-- Q5. Fila de follow-up: quem recebeu o link, não comprou e está fora da
+--     janela de 24h (então só pode receber template aprovado).
+--     Regras: só com consentimento e sem opt-out; no máximo 2 lembretes;
+--     o 2º só 3 dias depois do 1º e se a pessoa não respondeu ao 1º;
+--     e nunca mais de um lembrete por pessoa a cada 3 dias.
+SELECT
+    l.id                                  AS lead_id,
+    c.nome,
+    c.telefone_whatsapp,
+    cu.nome                               AS curso,
+    cu.preco,
+    cu.parcelas_max,
+    ROUND(cu.preco / cu.parcelas_max, 2)  AS valor_parcela,
+    cu.link_matricula,
+    CASE WHEN f1.id IS NULL THEN 'lembrete_link_1' ELSE 'lembrete_link_2' END AS proximo_template
 FROM leads l
 JOIN clientes c ON c.id = l.cliente_id
 JOIN cursos  cu ON cu.id = l.curso_id
+LEFT JOIN followups f1 ON f1.lead_id = l.id AND f1.template = 'lembrete_link_1'
+LEFT JOIN followups f2 ON f2.lead_id = l.id AND f2.template = 'lembrete_link_2'
 WHERE l.status = 'link_enviado'
   AND c.consentimento_lgpd = 1
-  AND c.opt_out = 0;
+  AND c.opt_out = 0
+  AND l.atualizado_em        <= datetime('now', '-24 hours')
+  AND c.ultima_mensagem_em   <= datetime('now', '-24 hours')
+  AND f2.id IS NULL
+  AND (f1.id IS NULL
+       OR (f1.enviado_em <= datetime('now', '-3 days') AND c.ultima_mensagem_em < f1.enviado_em))
+  AND l.id = (SELECT lx.id FROM leads lx         -- um curso por pessoa: o link mais recente
+               WHERE lx.cliente_id = c.id AND lx.status = 'link_enviado'
+               ORDER BY lx.atualizado_em DESC, lx.id DESC LIMIT 1)
+  AND NOT EXISTS (                               -- no máximo um lembrete por pessoa a cada 3 dias
+        SELECT 1 FROM followups fx JOIN leads lx ON lx.id = fx.lead_id
+         WHERE lx.cliente_id = c.id AND fx.enviado_em > datetime('now', '-3 days'));
 
 -- Q6. Percentual de atendimentos encaminhados para humano, por motivo
 SELECT
@@ -231,3 +276,23 @@ GROUP BY motivo;
 SELECT tema, passos
 FROM ajuda_aluno
 ORDER BY tema;
+
+-- Q8. Aplicar o <registro> que o agente devolve no fim de cada resposta.
+--     Exemplo com o registro de uma resposta à Ana:
+--     {"nome": null, "motivo": "matricula", "lead": {"curso": "SQL na Prática", "status": "link_enviado"},
+--      "encaminhar_humano": false, "motivo_encaminhamento": null, "opt_out": false,
+--      "consentimento": null, "resumo": "Achou o SQL caro; viu a parcela e recebeu o link."}
+INSERT INTO atendimentos (cliente_id, motivo, encaminhado_humano, motivo_encaminhamento, resumo)
+VALUES (1, 'matricula', 0, NULL, 'Achou o SQL caro; viu a parcela e recebeu o link.');
+
+INSERT INTO leads (cliente_id, curso_id, status)
+SELECT 1, id, 'link_enviado' FROM cursos WHERE nome = 'SQL na Prática'
+ON CONFLICT (cliente_id, curso_id) DO UPDATE
+   SET status = excluded.status, atualizado_em = datetime('now')
+ WHERE leads.status <> 'matriculado'           -- quem já comprou não volta no funil
+   AND NOT (leads.status = 'link_enviado' AND excluded.status = 'em_conversa');  -- nem quem já recebeu o link
+
+UPDATE clientes
+   SET ultima_mensagem_em = datetime('now'),
+       opt_out = MAX(opt_out, 0)               -- 1 quando o registro trouxer "opt_out": true
+ WHERE id = 1;

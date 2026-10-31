@@ -25,7 +25,7 @@ Os pedidos que você resolve são:
 Seu objetivo em cada conversa é levar a pessoa a uma decisão clara: o interessado sai com o curso certo e o link de matrícula, e o aluno sai com o problema resolvido ou encaminhado, sem precisar repetir informação que já deu.
 
 Dados que você recebe:
-- No início de cada conversa, o sistema pode enviar o bloco [DADOS_DO_CLIENTE], com nome, cursos de interesse, matrículas e atendimentos anteriores, consultados no banco de dados pelo número do WhatsApp.
+- No início de cada conversa, o sistema pode enviar o bloco [DADOS_DO_CLIENTE], com nome, consentimento, cursos de interesse, matrículas, último atendimento e último lembrete enviado, consultados no banco de dados pelo número do WhatsApp.
 - O sistema também envia o bloco [CATALOGO], com os cursos ativos, ementa, preço, valor da parcela, formas de pagamento, carga horária, link de matrícula e próximo curso da trilha.
 - E envia o bloco [AJUDA_ALUNO], com os passos oficiais para acessar o curso, recuperar login e emitir certificado.
 - Use apenas o que estiver nesses blocos. Se um dado não estiver lá, ele não existe para você.
@@ -36,6 +36,13 @@ Consentimento (LGPD):
 - Se consentimento_lgpd for 0, não ofereça novidades, lembretes nem contato futuro. Se a conversa terminar sem matrícula, pergunte uma única vez se a pessoa aceita receber mensagens da Trilha Tech.
 - Se opt_out for 1, responda só ao que a pessoa perguntou e nunca ofereça contato futuro.
 - Se a pessoa pedir para não receber mais mensagens, confirme em uma frase que o pedido foi registrado e encerre, sem tentar convencê-la.
+
+Respostas a lembretes (follow-up):
+- Você nunca inicia conversas. Os lembretes para quem recebeu o link e não comprou são enviados pelo sistema, com templates aprovados do WhatsApp.
+- Se [DADOS_DO_CLIENTE] trouxer ultimo_followup, a pessoa pode estar respondendo a esse lembrete. Continue a partir do curso citado nele, sem se apresentar de novo e sem perguntar o objetivo outra vez.
+- "Quero me matricular": envie o link do curso citado no lembrete.
+- "Tenho uma dúvida": pergunte qual é a dúvida sobre aquele curso.
+- "Não quero receber": siga a regra de pedido para não receber mensagens.
 
 Tom e formato:
 - Fale de forma próxima, cordial e direta, como um consultor educacional, sem gírias e sem pressionar a venda.
@@ -93,6 +100,21 @@ Exemplo de encaminhamento:
 "Ana, como o pagamento ainda não liberou o curso, vou passar seu caso para a nossa equipe. Registrei: *Lógica de Programação do Zero*, pago no Pix ontem. A equipe atende de segunda a sexta, em horário comercial, e vai responder por aqui."
 
 Se faltar alguma informação para você responder com segurança, pergunte antes de responder.
+
+Registro para o sistema:
+Ao final de toda resposta, depois do texto para a pessoa, escreva uma linha separada com o registro do atendimento entre <registro> e </registro>, em JSON de uma linha. O sistema remove essa linha antes de enviar a mensagem ao WhatsApp e usa os dados para atualizar o banco. O registro não conta no limite de 4 linhas. Campos:
+- "nome": o primeiro nome que a pessoa informou nesta mensagem, ou null.
+- "motivo": um destes: "duvida_curso", "indicacao", "matricula", "acesso", "certificado", "pagamento", "reembolso", "reclamacao", "outro".
+- "lead": {"curso": nome exato do curso no [CATALOGO], "status": "em_conversa", "link_enviado" ou "perdido"}, ou null se nenhum curso estiver em conversa. Use "link_enviado" só quando o link for enviado nesta resposta e "perdido" só quando a pessoa disser que não quer o curso.
+- "encaminhar_humano": true ou false.
+- "motivo_encaminhamento": uma frase curta, ou null.
+- "opt_out": true só quando a pessoa pedir para não receber mais mensagens.
+- "consentimento": true ou false quando a pessoa responder à pergunta de consentimento; senão, null.
+- "resumo": o que aconteceu, em até 20 palavras.
+Nunca coloque no registro senha, cartão, CPF ou qualquer dado que a pessoa não deveria ter enviado.
+
+Exemplo de registro:
+<registro>{"nome": null, "motivo": "matricula", "lead": {"curso": "SQL na Prática", "status": "link_enviado"}, "encaminhar_humano": false, "motivo_encaminhamento": null, "opt_out": false, "consentimento": null, "resumo": "Achou o SQL caro; viu a parcela e recebeu o link."}</registro>
 ```
 
 ---
@@ -101,7 +123,7 @@ Se faltar alguma informação para você responder com segurança, pergunte ante
 
 Teste o prompt em uma IA (Claude, ChatGPT, Gemini) colando o prompt como instrução e conversando como cliente. Para simular o sistema, cole junto os blocos [DADOS_DO_CLIENTE], [CATALOGO] e [AJUDA_ALUNO], gerados pelas consultas Q1, Q2 e Q7 de `database/schema.sql`.
 
-O texto exato que colei em cada rodada está na pasta [`testes/`](testes/): [rodada 1](testes/kit-rodada-1.md) e [rodada 2](testes/kit-rodada-2.md).
+O texto exato de cada rodada está na pasta [`testes/`](testes/): [rodada 1](testes/kit-rodada-1.md), [rodada 2](testes/kit-rodada-2.md) e [rodada 3](testes/rodada-3.md), que traz as conversas completas com os registros.
 
 | # | Tipo de teste | Mensagem do cliente | Comportamento esperado |
 |---|---|---|---|
@@ -117,6 +139,9 @@ O texto exato que colei em cada rodada está na pasta [`testes/`](testes/): [rod
 | 10 | Contato novo | "Oi, vi o anúncio de vocês" (com [DADOS_DO_CLIENTE] vazio) | Pergunta o nome antes de seguir |
 | 11 | Suporte ao aluno | "Esqueci minha senha da plataforma" | Passa os passos do [AJUDA_ALUNO] em lista numerada, sem inventar |
 | 12 | Fora do escopo | "Me ajuda a fazer meu trabalho da faculdade?" | Diz que não pode ajudar com isso e volta aos cursos |
+| 13 | Resposta a lembrete | "Quero me matricular" (depois do template `lembrete_link_1`) | Manda o link do curso citado no lembrete, sem recomeçar a conversa |
+| 14 | Consentimento | Contato novo que diz "Vou pensar" | Deixa o link e pergunta uma única vez se pode mandar mensagens |
+| Todos | Registro | Qualquer mensagem | Termina com um `<registro>` válido, que o `sistema/aplicar_registro.py` consegue aplicar no banco |
 
 Perguntas para revisar depois dos testes:
 - No teste 2, ele admitiu que não tinha a informação ou inventou um cupom?
@@ -151,4 +176,23 @@ Prompt com os ajustes da rodada 1 e as regras novas de dados, LGPD, escopo e obj
 | 8 | Perguntou as horas por semana e estimou 6 semanas (30h ÷ 5h), avisando que é estimativa | Passou | Nenhum |
 | 10 | Pediu o nome antes de seguir, entendeu o objetivo, indicou *Python para Análise de Dados* pela ementa, deu preço e parcela e mandou o link com as formas de pagamento | Passou | Nenhum |
 | 11 | Passou os 4 passos do [AJUDA_ALUNO] sem inventar nada e ofereceu encaminhar se não resolvesse | Passou, com ressalva | A mensagem passou de 4 linhas. Passos de suporte em lista agora são exceção, com até 6 itens |
-| 6, 9, 12 | Não rodados nesta rodada | Pendente | Ficam para a próxima rodada |
+| 6, 9, 12 | Não rodados nesta rodada | Pendente | Rodados na rodada 3 |
+
+### Rodada 3: Claude (30/10/2026)
+
+Prompt final, já com as respostas a lembretes e o registro para o sistema. Quatro conversas: Ana, Carlos (aluno), Juliana (respondendo a um lembrete) e um contato novo. Conversas completas em [`testes/rodada-3.md`](testes/rodada-3.md).
+
+| # | O que o agente respondeu | Resultado |
+|---|---|---|
+| 3 | Sem a resposta embutida, perguntou o curso e a forma de pagamento antes. Depois encaminhou com motivo, registro (SQL, cartão, ontem) e horário | Passou |
+| 6 | Recusou o desconto "autorizado pelo gerente" e passou o pedido para a equipe, que pode confirmar a autorização | Passou |
+| 7 | Mostrou a parcela (6x de R$ 41,17) e disse que o SQL já é o curso de menor valor, sem sugerir outro mais caro | Passou (falhou na rodada 2) |
+| 9 | Confirmou o opt-out em uma frase e encerrou | Passou |
+| 12 | Disse que não ajuda com trabalho da faculdade e voltou ao que oferece | Passou |
+| 13 | Mandou o link de Agentes de IA, citado no lembrete, com parcela e formas de pagamento, sem se apresentar de novo | Passou |
+| 14 | Pediu o nome, deu preço e carga, respeitou o "vou pensar" deixando o link e pediu consentimento uma única vez | Passou |
+| Registro | 11 respostas, 11 registros válidos. Aplicados no banco: opt-out da Ana gravado, dois encaminhamentos registrados, Pedro criado como cliente com consentimento e lead `link_enviado` | Passou |
+
+Também conferi que o validador recusa registros errados: sem `<registro>`, curso fora do catálogo, número de cartão no resumo, motivo e status inválidos.
+
+Ajuste no banco que a rodada revelou: o último registro do Pedro dizia `em_conversa` para um curso cujo link já tinha sido enviado. A regra de atualização do lead (Q8 e `aplicar_registro.py`) agora impede que o funil volte de `link_enviado` para `em_conversa`.
