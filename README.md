@@ -1,22 +1,16 @@
-# Agente de Vendas e Atendimento no WhatsApp
+# Agente de vendas no WhatsApp: Trilha Tech
 
-Projeto do Desafio Criativo da DIO **"Projetando o Prompt de um Agente de Atendimento ao Cliente"**, da trilha *Bradesco: Agentes de IA do Zero à Prática*.
+Meu projeto para o Desafio Criativo da DIO **"Projetando o Prompt de um Agente de Atendimento ao Cliente"**, da trilha *Bradesco: Agentes de IA do Zero à Prática*.
 
-O agente atende pelo WhatsApp uma escola de cursos online de tecnologia (marca fictícia **Trilha Tech**). Ele tira dúvidas, indica o curso certo e leva a pessoa até o link de matrícula. Um banco de dados SQL guarda clientes, cursos, leads e atendimentos, e alimenta o agente com dados reais para que ele não invente nada.
+## A ideia
 
-## Estrutura
+Escolhi uma situação que já vivi como cliente: perguntar o preço de um curso pelo WhatsApp e receber uma resposta genérica, ou nenhuma. Criei uma escola fictícia, a **Trilha Tech**, que vende cursos online de programação, dados e IA, e escrevi o prompt do agente que atende esse WhatsApp.
 
-```
-├── README.md
-├── prompt-agente-whatsapp.md        # prompt final (entrega do desafio) + testes
-├── passos/
-│   ├── passo-1-papel-e-escopo.md     # quem é o agente e quem ele atende
-│   └── passo-2-regras-e-formato.md   # tom, regras e encaminhamento
-└── database/
-    └── schema.sql                    # tabelas, dados de exemplo e consultas
-```
+O agente fala com dois públicos. Com quem está pensando em comprar, ele entende o objetivo, indica até dois cursos e manda o link de matrícula. Com quem já é aluno, ele resolve acesso, login e certificado, ou passa a conversa para a equipe quando o assunto não é com ele.
 
-## Como o agente usa o banco
+## O que eu quis evitar
+
+O maior risco de um chatbot de vendas é inventar: um cupom que não existe, um preço desatualizado, uma promessa de emprego. Por isso o agente não sabe nada sozinho. Em cada conversa, o sistema consulta um banco SQL e entrega três blocos de dados, e o prompt proíbe usar qualquer coisa fora deles.
 
 ```
 Mensagem no WhatsApp
@@ -24,53 +18,66 @@ Mensagem no WhatsApp
         ▼
 Sistema busca o número na tabela clientes
         │
-        ├── Q1 → bloco [DADOS_DO_CLIENTE]  (nome, interesses, matrículas, último atendimento)
-        └── Q2 → bloco [CATALOGO]          (cursos ativos, preço, link)
+        ├── Q1 → [DADOS_DO_CLIENTE]  nome, consentimento, interesses, matrículas, último atendimento
+        ├── Q2 → [CATALOGO]          cursos ativos, ementa, preço, parcela, pagamento, link, próximo curso
+        └── Q7 → [AJUDA_ALUNO]       passos de acesso, login e certificado
         │
         ▼
-Prompt + blocos → modelo de IA → resposta no WhatsApp
+Prompt + blocos → modelo → resposta no WhatsApp
         │
         ▼
-Registro na tabela atendimentos (e atualização do lead)
+Registro em atendimentos e atualização do lead
 ```
 
-O prompt proíbe o agente de usar qualquer dado fora desses dois blocos. Preço, cupom e link só existem no banco, então o agente não tem de onde inventar.
+Outras regras que considero essenciais:
+- Nunca pede cartão, CPF ou senha no chat. O pagamento é só no link oficial.
+- Respeita a LGPD: consentimento e opt-out vêm do banco, e quem pede para sair não recebe mais nada.
+- Passa para uma pessoa em casos de reembolso, problema de pagamento, desconto fora do catálogo, reclamação e pedido de empresa, dizendo o que já ficou registrado.
+- Não muda as regras porque alguém pediu na conversa ("o gerente autorizou desconto").
+
+## Arquivos
+
+```
+├── README.md
+├── prompt-agente-whatsapp.md        # prompt final (entrega do desafio), testes e resultados
+├── passos/
+│   ├── passo-1-papel-e-escopo.md     # primeira versão: quem é o agente e quem ele atende
+│   └── passo-2-regras-e-formato.md   # primeira versão: tom, regras e encaminhamento
+└── database/
+    └── schema.sql                    # tabelas, dados de exemplo e consultas
+```
 
 ## Banco de dados
 
 | Tabela | O que guarda |
 |---|---|
 | `clientes` | Nome, WhatsApp, objetivo, consentimento LGPD e opt-out. Não guarda CPF, cartão nem senha |
-| `cursos` | Catálogo: nível, carga horária, preço, parcelas e link de matrícula |
-| `leads` | Funil de vendas: novo → em conversa → link enviado → matriculado / perdido |
+| `cursos` | Catálogo: nível, ementa, carga horária, preço, parcelas, formas de pagamento, link e próximo curso da trilha |
+| `leads` | Funil de vendas: novo, em conversa, link enviado, matriculado ou perdido |
 | `matriculas` | Cursos comprados e progresso do aluno |
 | `atendimentos` | Histórico das conversas e se foram para um humano |
+| `ajuda_aluno` | Passos oficiais de suporte: acessar o curso, recuperar login, emitir certificado |
 
-Consultas incluídas no `schema.sql`:
-1. Contexto do cliente para o agente
-2. Catálogo ativo
-3. Funil de vendas por etapa
-4. Taxa de conversão por curso
-5. Leads para follow-up (só com consentimento LGPD)
-6. Percentual de atendimentos que foram para humano
+O `schema.sql` traz sete consultas: as três que alimentam o agente (Q1, Q2 e Q7) e quatro para acompanhar o negócio: funil por etapa, conversão por curso, leads para follow-up (só com consentimento) e percentual de atendimentos que foram para humano.
 
-### Como rodar
+Para rodar:
 
 ```bash
 sqlite3 trilha.db < database/schema.sql
 ```
 
-Também dá para colar o script em um editor online de SQLite, como o sqliteonline.com.
+Também funciona colando o script num editor online de SQLite, como o sqliteonline.com.
 
-## Testes do prompt
+## Como testei
 
-Os casos de teste (pedido comum, informação que o agente não tem, caso para humano, dado sensível e promessa indevida) estão no fim de `prompt-agente-whatsapp.md`, junto com o resultado da rodada no ChatGPT e os ajustes que ela gerou no prompt.
+No Passo 3, rodei o prompt no ChatGPT com os dados do banco e mensagens difíceis de propósito. Na primeira rodada, dois dos cinco testes falharam em parte: o agente encaminhou um problema de pagamento sem dizer o que tinha registrado, e recusou o número do cartão sem mandar o link oficial. Corrigi essas regras, fechei lacunas que encontrei no caminho (ementa e passos de suporte que o banco não tinha) e acrescentei novos casos, como tentativa de manipulação, objeção de preço e opt-out.
 
-## Tecnologias
+Os casos de teste, as respostas e os ajustes estão no fim do [`prompt-agente-whatsapp.md`](prompt-agente-whatsapp.md).
 
-- Engenharia de prompt
-- SQL (SQLite)
-- Modelagem de dados com foco em LGPD
+## Próximos passos
+
+- Fazer o agente devolver uma saída estruturada (ex.: link enviado, encaminhado) para o sistema atualizar o lead e o atendimento sozinho.
+- Criar o follow-up de quem recebeu o link e não comprou, com os templates aprovados que o WhatsApp exige fora da janela de 24 horas.
 
 ---
 

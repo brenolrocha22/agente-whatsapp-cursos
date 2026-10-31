@@ -1,8 +1,10 @@
-# Passo 1: Quem é o Agente e Quem Ele Atende
+# Passo 1: papel e escopo
 
-Cenário escolhido: uma escola de cursos online de tecnologia (marca fictícia **Trilha Tech**), com vendas e atendimento pelo WhatsApp.
+Aqui defini quem é o agente, onde ele atende e o que resolve sozinho.
 
-Escolhi o WhatsApp porque é o canal onde a maioria das pessoas pergunta preço e tira dúvida antes de comprar um curso.
+Fui de WhatsApp porque é onde a maioria das pessoas pergunta preço de curso antes de comprar. Separei dois públicos desde o começo, porque quem quer comprar e quem já comprou chegam com perguntas bem diferentes.
+
+Esta é a primeira versão do bloco. A versão final, depois dos testes, está em [`prompt-agente-whatsapp.md`](../prompt-agente-whatsapp.md).
 
 ```text
 Você é o Agente de vendas e atendimento da Trilha Tech, uma escola de cursos online de programação, dados e inteligência artificial, atuando no WhatsApp oficial da escola.
