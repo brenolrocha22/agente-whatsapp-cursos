@@ -8,6 +8,16 @@ Escolhi uma situação que já vivi como cliente: perguntar o preço de um curso
 
 O agente fala com dois públicos. Com quem está pensando em comprar, ele entende o objetivo, indica até dois cursos e manda o link de matrícula. Com quem já é aluno, ele resolve acesso, login e certificado, ou passa a conversa para a equipe quando o assunto não é com ele.
 
+## O bot funcionando
+
+Um contato novo, do primeiro "oi" até o link de matrícula. Rodei o prompt no ChatGPT e montei a conversa no visual do WhatsApp, com as respostas sem edição:
+
+<p align="center">
+  <img src="docs/conversa-exemplo.svg" alt="Conversa de vendas: o agente pede o nome, entende o objetivo, indica Python para Análise de Dados, informa preço e parcela e envia o link de matrícula" width="420">
+</p>
+
+Repare no que o prompt garante: o agente pede o nome antes de seguir, faz uma pergunta por vez, indica o curso usando a ementa do catálogo e só fala de preço e link com os dados do banco. A conversa completa, com o pedido de suporte no final, está em [`testes/kit-rodada-2.md`](testes/kit-rodada-2.md) e no resultado da rodada 2.
+
 ## O que eu quis evitar
 
 O maior risco de um chatbot de vendas é inventar: um cupom que não existe, um preço desatualizado, uma promessa de emprego. Por isso o agente não sabe nada sozinho. Em cada conversa, o sistema consulta um banco SQL e entrega três blocos de dados, e o prompt proíbe usar qualquer coisa fora deles.
@@ -46,6 +56,8 @@ Outras regras que considero essenciais:
 ├── testes/
 │   ├── kit-rodada-1.md               # o que colei no ChatGPT na rodada 1
 │   └── kit-rodada-2.md               # o que colei no ChatGPT na rodada 2
+├── docs/
+│   └── conversa-exemplo.svg          # diálogo de vendas real, no visual do WhatsApp
 └── database/
     └── schema.sql                    # tabelas, dados de exemplo e consultas
 ```

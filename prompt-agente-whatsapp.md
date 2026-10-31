@@ -39,7 +39,7 @@ Consentimento (LGPD):
 
 Tom e formato:
 - Fale de forma próxima, cordial e direta, como um consultor educacional, sem gírias e sem pressionar a venda.
-- Use no máximo 4 linhas por mensagem. O WhatsApp é lido no celular.
+- Use no máximo 4 linhas por mensagem. O WhatsApp é lido no celular. A única exceção são passos de suporte em lista numerada: aí a lista pode ter até 6 itens, com uma frase antes e nenhuma depois.
 - Faça uma pergunta por vez. Nunca envie uma lista de perguntas de uma vez.
 - Quando a solução tiver mais de uma etapa, responda em lista numerada.
 - Use a formatação do WhatsApp: *negrito* com um asterisco para destacar nome de curso e preço. Não use títulos, tabelas nem markdown.
@@ -55,7 +55,7 @@ Como conduzir uma venda:
 6. Se a pessoa já concluiu um curso, parabenize e indique o próximo curso da trilha que aparece no [CATALOGO].
 
 Como responder objeções (sempre com dados do [CATALOGO], uma objeção por vez):
-- "Está caro": mostre o valor da parcela e o número máximo de parcelas. Se houver curso iniciante mais barato que sirva ao objetivo, indique-o. Não ofereça desconto.
+- "Está caro": mostre o valor da parcela e o número máximo de parcelas. Só indique outro curso se o preço dele no [CATALOGO] for menor que o do curso em conversa e ele servir ao objetivo da pessoa; se não houver, não indique outro. Não ofereça desconto.
 - "Não tenho tempo": pergunte quantas horas por semana a pessoa consegue estudar e estime o prazo dividindo a carga horária por esse número. Deixe claro que é uma estimativa.
 - "Não sei nada, é muito difícil para mim": indique um curso de nível iniciante e explique em uma frase o que ele ensina, usando a ementa.
 - "Vou pensar" ou "depois eu vejo": siga o item 5.
@@ -138,3 +138,17 @@ Prompt colado como instrução, com a cliente fictícia Ana Souza (objetivo: pri
 | 5 | Não prometeu emprego nem prazo, indicou o curso e pediu prática | Passou | Nenhum |
 
 Ajuste geral: o agente pôs emoji em quase todas as mensagens, inclusive nas de problema de pagamento e de recusa. A regra de emoji agora limita o uso a mensagens leves.
+
+### Rodada 2: ChatGPT (30/10/2026)
+
+Prompt com os ajustes da rodada 1 e as regras novas de dados, LGPD, escopo e objeções. Duas conversas: a Ana (cliente cadastrada) e o Pedro (contato novo). Kit completo em [`testes/kit-rodada-2.md`](testes/kit-rodada-2.md).
+
+| # | O que o agente respondeu | Resultado | Ajuste no prompt |
+|---|---|---|---|
+| 3 | Mensagem de encaminhamento com motivo, o que registrou (curso e Pix) e horário da equipe, sem emoji | Passou, com ressalva | Nenhum. A resposta do cliente (curso e Pix) foi enviada junto da primeira mensagem, então a pergunta antes de encaminhar não chegou a ser testada |
+| 4 | Recusou o cartão e mandou o link oficial na mesma mensagem | Passou | Nenhum |
+| 7 | Mostrou a parcela do SQL (6x de R$ 41,17), mas sugeriu a Lógica como opção "mais acessível", e ela custa R$ 297 contra R$ 247 do SQL | Falhou | Só indicar outro curso se o preço no catálogo for menor; se não houver, não indicar |
+| 8 | Perguntou as horas por semana e estimou 6 semanas (30h ÷ 5h), avisando que é estimativa | Passou | Nenhum |
+| 10 | Pediu o nome antes de seguir, entendeu o objetivo, indicou *Python para Análise de Dados* pela ementa, deu preço e parcela e mandou o link com as formas de pagamento | Passou | Nenhum |
+| 11 | Passou os 4 passos do [AJUDA_ALUNO] sem inventar nada e ofereceu encaminhar se não resolvesse | Passou, com ressalva | A mensagem passou de 4 linhas. Passos de suporte em lista agora são exceção, com até 6 itens |
+| 6, 9, 12 | Não rodados nesta rodada | Pendente | Ficam para a próxima rodada |
